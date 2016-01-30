@@ -19,25 +19,22 @@ class TestGromacs(BaseTest):
     mdp = os.path.join(test_dir, 'grompp.mdp')
     mdp_vacuum = os.path.join(test_dir, 'grompp_vacuum.mdp')
 
-    unit_gros = sorted(glob(os.path.join(test_dir, 'unit_tests/*/*.gro')))
-    unit_tops = sorted(glob(os.path.join(test_dir, 'unit_tests/*/*.top')))
+    unit_test_dir = os.path.join(test_dir, 'unit_tests')
+    unit_test_names = list(os.walk(unit_test_dir))[0][1]
 
-    unit_test_files = list()
-    for gro, top in zip(unit_gros, unit_tops):
-        if not splitext(basename(gro))[0] == splitext(basename(top))[0]:
-            raise ValidateError('.gro and .top files are expected to share the'
-                                ' same basename.')
-
-        if '_vacuum' in gro:
-            mdp_to_use = mdp_vacuum
+    def choose_mdp(self, test_name):
+        if '_vacuum' in test_name:
+            return self.mdp_vacuum
         else:
-            mdp_to_use = mdp
-        unit_test_files.append((top, gro, mdp_to_use))
+            return self.mdp
 
-    @pytest.mark.parametrize('top_in,gro_in,mdp', unit_test_files)
-    def test_gromacs_unit(self, top_in, gro_in, mdp):
-        base_path, top = os.path.split(top_in)
-        base_path, gro = os.path.split(gro_in)
+    @pytest.mark.parametrize('test_name', unit_test_names)
+    def test_gromacs_unit(self, test_name):
+        top_in = os.path.join(self.unit_test_dir, test_name, test_name + '.top')
+        gro_in = os.path.join(self.unit_test_dir, test_name, test_name + '.gro')
+        mdp = self.choose_mdp(test_name)
+
+        cwd = os.getcwd()
 
         input_energy = gmx_energy(top_in, gro_in, mdp)
 
@@ -45,16 +42,14 @@ class TestGromacs(BaseTest):
 
         for engine in SUPPORTED_ENGINES:
             if engine == 'GROMACS':
-                top_out = os.path.join(base_path, 'out_' + top)
-                gro_out = os.path.join(base_path, 'out_' + gro)
+                top_out = os.path.join(cwd, 'out_{}.top'.format(test_name))
+                gro_out = os.path.join(cwd, 'out_{}.gro'.format(test_name))
                 structure.save(top_out, overwrite=True)
                 structure.save(gro_out, overwrite=True)
 
                 output_energy = gmx_energy(top_out, gro_out, mdp)
                 diff = energy_diff(input_energy, output_energy)
 
-        from pprint import pprint
-        pprint(diff)
 
 if __name__ == '__main__':
     test = TestGromacs()
