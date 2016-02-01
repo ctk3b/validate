@@ -6,6 +6,7 @@ import pytest
 
 from validate import SUPPORTED_ENGINES
 from validate.exceptions import ValidateError
+from validate.gromacs import gmx_structure_energy
 from validate.gromacs import energy as gmx_energy
 from validate.utils import energy_diff
 from validate.tests.basetest import BaseTest
@@ -38,21 +39,12 @@ class TestGromacs(BaseTest):
         top_in = os.path.join(self.unit_test_dir, test_name, test_name + '.top')
         gro_in = os.path.join(self.unit_test_dir, test_name, test_name + '.gro')
         mdp = self.choose_mdp(test_name)
-
         cwd = os.getcwd()
 
         input_energy = gmx_energy(top_in, gro_in, mdp)
-
         structure = pmd.load_file(top_in, xyz=gro_in)
-
-        if engine == 'GROMACS':
-            top_out = os.path.join(cwd, 'out_{}.top'.format(test_name))
-            gro_out = os.path.join(cwd, 'out_{}.gro'.format(test_name))
-            structure.save(top_out, overwrite=True)
-            structure.save(gro_out, overwrite=True)
-
-            output_energy = gmx_energy(top_out, gro_out, mdp)
-            diff = energy_diff(input_energy, output_energy)
+        output_energy = self.output_energy[engine](structure, mdp, cwd)
+        diff = energy_diff(input_energy, output_energy)
 
         return diff
 

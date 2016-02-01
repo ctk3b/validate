@@ -81,6 +81,31 @@ def energy(top, gro, mdp):
     return normalize_energy_keys(energy)
 
 
+def gmx_structure_energy(structure, mdp, output_dir, file_name='output'):
+    """Write a structure out to a .top/.gro pair and evaluate its energy.
+
+    Parameters
+    ----------
+    structure : pmd.Structure
+    mdp : str
+        Path to a .mdp file to use when evaluating the energy.
+    output_dir : str
+        The directory to write the .top and .gro files in.
+    file_name : str
+        The base name of the .top and .gro files.
+
+    Returns
+    -------
+    output_energy : OrderedDict
+
+    """
+    top_out = os.path.join(output_dir, '{}.top'.format(file_name))
+    gro_out = os.path.join(output_dir, '{}.gro'.format(file_name))
+    structure.save(top_out, overwrite=True)
+    structure.save(gro_out, overwrite=True)
+    return energy(top_out, gro_out, mdp)
+
+
 def binaries():
     """Locate the paths to the best available gromacs binaries. """
     if which('gmx_d'):
