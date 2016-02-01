@@ -6,7 +6,7 @@ import parmed.unit as u
 from validate.utils import run_subprocess, normalize_energy_keys
 
 
-def amb_structure_energy(structure, output_dir, mdin, file_name='output'):
+def amb_structure_energy(structure, mdin, file_name='output'):
     """Write a structure out to a .prmtop/.inpcrd pair and evaluate its energy.
 
     Parameters
@@ -15,8 +15,6 @@ def amb_structure_energy(structure, output_dir, mdin, file_name='output'):
         The ParmEd structure to write and evaluate.
     mdin : str
         Path to a .mdp file to use when evaluating the energy.
-    output_dir : str
-        The directory to write the .top and .gro files in.
     file_name : str
         The base name of the .top and .gro files.
 
@@ -25,8 +23,8 @@ def amb_structure_energy(structure, output_dir, mdin, file_name='output'):
     output_energy : OrderedDict
 
     """
-    crd_out = os.path.join(output_dir, '{}.inpcrd'.format(file_name))
-    prm_out = os.path.join(output_dir, '{}.prmtop'.format(file_name))
+    crd_out = '{}.inpcrd'.format(file_name)
+    prm_out = '{}.prmtop'.format(file_name)
     structure.save(crd_out, overwrite=True)
     structure.save(prm_out, overwrite=True)
     return energy(prm_out, crd_out, mdin)
@@ -56,7 +54,7 @@ def energy(prm, crd, mdin):
 
     sander = ['sander']
 
-    # Run grompp.
+    # Run sander.
     sander.extend(['-i', mdin,
                    '-o', mdout,
                    '-p', prm,

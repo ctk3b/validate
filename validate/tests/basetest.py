@@ -23,10 +23,10 @@ class BaseTest(object):
     def initdir(self, tmpdir):
         tmpdir.chdir()
 
-    def output_energy(self, engine, structure, cwd, test_name):
+    def output_energy(self, engine, structure, test_name):
         config_file = self.choose_config_file(engine, test_name)
         energy_evaluator = self.structure_energy_evaluators[engine]
-        return energy_evaluator(structure, cwd, config_file, test_name)
+        return energy_evaluator(structure, config_file, test_name)
 
     def choose_config_file(self, engine, test_name):
         if engine == 'GROMACS':

@@ -14,15 +14,13 @@ UNWANTED_ENERGY_TERMS = ['Kinetic En.', 'Total Energy', 'Temperature', 'Volume',
                          'Vir-ZY', 'Vir-ZZ', 'pV', 'Density', 'Enthalpy']
 
 
-def gmx_structure_energy(structure, output_dir, mdp, file_name='output'):
+def gmx_structure_energy(structure,  mdp, file_name='output'):
     """Write a structure out to a .top/.gro pair and evaluate its energy.
 
     Parameters
     ----------
     structure : pmd.Structure
         The ParmEd structure to write and evaluate.
-    output_dir : str
-        The directory to write the .top and .gro files in.
     mdp : str
         Path to a .mdp file to use when evaluating the energy.
     file_name : str
@@ -33,8 +31,8 @@ def gmx_structure_energy(structure, output_dir, mdp, file_name='output'):
     output_energy : OrderedDict
 
     """
-    top_out = os.path.join(output_dir, '{}.top'.format(file_name))
-    gro_out = os.path.join(output_dir, '{}.gro'.format(file_name))
+    top_out = '{}.top'.format(file_name)
+    gro_out = '{}.gro'.format(file_name)
     structure.save(top_out, overwrite=True)
     structure.save(gro_out, overwrite=True)
     return energy(top_out, gro_out, mdp)

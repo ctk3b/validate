@@ -29,12 +29,11 @@ class TestGromacs(BaseTest):
         top_in = os.path.join(self.unit_test_dir, test_name, test_name + '.top')
         gro_in = os.path.join(self.unit_test_dir, test_name, test_name + '.gro')
         mdp = self.choose_config_file('GROMACS', test_name)
-        cwd = os.getcwd()
 
         input_energy = gmx_energy(top_in, gro_in, mdp)
 
         structure = pmd.load_file(top_in, xyz=gro_in)
-        output_energy = self.output_energy(engine, structure, cwd, test_name)
+        output_energy = self.output_energy(engine, structure, test_name)
 
         diff = energy_diff(input_energy, output_energy)
         return diff
