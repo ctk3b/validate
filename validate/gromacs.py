@@ -14,6 +14,31 @@ UNWANTED_ENERGY_TERMS = ['Kinetic En.', 'Total Energy', 'Temperature', 'Volume',
                          'Vir-ZY', 'Vir-ZZ', 'pV', 'Density', 'Enthalpy']
 
 
+def gmx_structure_energy(structure, mdp, output_dir, file_name='output'):
+    """Write a structure out to a .top/.gro pair and evaluate its energy.
+
+    Parameters
+    ----------
+    structure : pmd.Structure
+    mdp : str
+        Path to a .mdp file to use when evaluating the energy.
+    output_dir : str
+        The directory to write the .top and .gro files in.
+    file_name : str
+        The base name of the .top and .gro files.
+
+    Returns
+    -------
+    output_energy : OrderedDict
+
+    """
+    top_out = os.path.join(output_dir, '{}.top'.format(file_name))
+    gro_out = os.path.join(output_dir, '{}.gro'.format(file_name))
+    structure.save(top_out, overwrite=True)
+    structure.save(gro_out, overwrite=True)
+    return energy(top_out, gro_out, mdp)
+
+
 def energy(top, gro, mdp):
     """Evaluate the energy of a .top, .gro and .mdp file combination.
 
@@ -54,7 +79,7 @@ def energy(top, gro, mdp):
                    '-maxwarn', '5'])
     proc = run_subprocess(grompp, stdout_path, stderr_path)
     if proc.returncode != 0:
-        RuntimeError('grompp failed. See %s' % stderr_path)
+        raise RuntimeError('grompp failed. See %s' % stderr_path)
 
     # Run single-point calculation with mdrun.
     mdrun.extend(['-nt', '1',
@@ -66,7 +91,7 @@ def energy(top, gro, mdp):
                   '-g', log])
     proc = run_subprocess(mdrun, stdout_path, stderr_path)
     if proc.returncode != 0:
-        RuntimeError('mdrun failed. See %s' % stderr_path)
+        raise RuntimeError('mdrun failed. See %s' % stderr_path)
 
     # Extract energies using g_energy
     select = " ".join(map(str, range(1, 20))) + " 0 "
@@ -75,35 +100,58 @@ def energy(top, gro, mdp):
                     '-dp'])
     proc = run_subprocess(genergy, stdout_path, stderr_path, stdin=select)
     if proc.returncode != 0:
-        RuntimeError('g_energy failed. See %s' % stderr_path)
+        raise RuntimeError('g_energy failed. See %s' % stderr_path)
 
-    energy = _group_energy_terms(ener_xvg)
+    energy = _parse_energy_xvg(ener_xvg)
+    energy = _group_energy_terms(energy)
     return normalize_energy_keys(energy)
 
 
-def gmx_structure_energy(structure, mdp, output_dir, file_name='output'):
-    """Write a structure out to a .top/.gro pair and evaluate its energy.
+def _parse_energy_xvg(energy_xvg):
+    """Parse energy.xvg file to extract energy terms into a dict. """
+    with open(energy_xvg) as f:
+        all_lines = f.readlines()
+    energy_types = [line.split('"')[1]
+                    for line in all_lines
+                    if line[:3] == '@ s']
+    energy_values = [float(x) * u.kilojoule_per_mole
+                     for x in all_lines[-1].split()[1:]]
+    energy = OrderedDict(zip(energy_types, energy_values))
+    return energy
 
-    Parameters
-    ----------
-    structure : pmd.Structure
-    mdp : str
-        Path to a .mdp file to use when evaluating the energy.
-    output_dir : str
-        The directory to write the .top and .gro files in.
-    file_name : str
-        The base name of the .top and .gro files.
 
-    Returns
-    -------
-    output_energy : OrderedDict
+def _group_energy_terms(energy):
+    """Group energy terms into broader categories """
+    # Discard non-energy terms.
+    for group in UNWANTED_ENERGY_TERMS:
+        if group in energy:
+            del energy[group]
 
-    """
-    top_out = os.path.join(output_dir, '{}.top'.format(file_name))
-    gro_out = os.path.join(output_dir, '{}.gro'.format(file_name))
-    structure.save(top_out, overwrite=True)
-    structure.save(gro_out, overwrite=True)
-    return energy(top_out, gro_out, mdp)
+    # Dispersive energies.
+    # TODO: Do buckingham energies also get dumped here?
+    dispersive = ['LJ (SR)', 'LJ-14', 'Disper. corr.']
+    energy['Dispersive'] = 0 * u.kilojoules_per_mole
+    for group in dispersive:
+        if group in energy:
+            energy['Dispersive'] += energy[group]
+
+    # Electrostatic energies.
+    electrostatic = ['Coulomb (SR)', 'Coulomb-14', 'Coul. recip.']
+    energy['Electrostatic'] = 0 * u.kilojoules_per_mole
+    for group in electrostatic:
+        if group in energy:
+            energy['Electrostatic'] += energy[group]
+
+    energy['Non-bonded'] = energy['Electrostatic'] + energy['Dispersive']
+
+    # All the various dihedral energies.
+    all_dihedrals = ['Ryckaert-Bell.', 'Proper Dih.', 'Improper Dih.']
+    energy['All dihedrals'] = 0 * u.kilojoules_per_mole
+    for group in all_dihedrals:
+        if group in energy:
+            energy['All dihedrals'] += energy[group]
+
+    return energy
 
 
 def binaries():
@@ -133,47 +181,3 @@ def binaries():
     else:
         raise IOError('Unable to find gromacs executables.')
     return grompp_bin, mdrun_bin, genergy_bin
-
-
-def _group_energy_terms(ener_xvg):
-    """Parse energy.xvg file to extract and group energy terms in a dict. """
-    with open(ener_xvg) as f:
-        all_lines = f.readlines()
-    energy_types = [line.split('"')[1]
-                    for line in all_lines
-                    if line[:3] == '@ s']
-    energy_values = [float(x) * u.kilojoule_per_mole
-                     for x in all_lines[-1].split()[1:]]
-    e_out = OrderedDict(zip(energy_types, energy_values))
-
-    # Discard non-energy terms.
-    for group in UNWANTED_ENERGY_TERMS:
-        if group in e_out:
-            del e_out[group]
-
-    # Dispersive energies.
-    # TODO: Do buckingham energies also get dumped here?
-    dispersive = ['LJ (SR)', 'LJ-14', 'Disper. corr.']
-    e_out['Dispersive'] = 0 * u.kilojoules_per_mole
-    for group in dispersive:
-        if group in e_out:
-            e_out['Dispersive'] += e_out[group]
-
-    # Electrostatic energies.
-    electrostatic = ['Coulomb (SR)', 'Coulomb-14', 'Coul. recip.']
-    e_out['Electrostatic'] = 0 * u.kilojoules_per_mole
-    for group in electrostatic:
-        if group in e_out:
-            e_out['Electrostatic'] += e_out[group]
-
-    e_out['Non-bonded'] = e_out['Electrostatic'] + e_out['Dispersive']
-
-    # All the various dihedral energies.
-    all_dihedrals = ['Ryckaert-Bell.', 'Proper Dih.', 'Improper Dih.']
-    e_out['All dihedrals'] = 0 * u.kilojoules_per_mole
-    for group in all_dihedrals:
-        if group in e_out:
-            e_out['All dihedrals'] += e_out[group]
-
-    return e_out
-

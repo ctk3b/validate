@@ -36,6 +36,7 @@ class TestGromacs(BaseTest):
     @pytest.mark.parametrize('engine,test_name',
                              zip(repeated_engines, tests_per_engine))
     def test_gromacs_unit(self, engine, test_name):
+        """Convert GROMACS unit tests to every supported engine. """
         top_in = os.path.join(self.unit_test_dir, test_name, test_name + '.top')
         gro_in = os.path.join(self.unit_test_dir, test_name, test_name + '.gro')
         mdp = self.choose_mdp(test_name)
@@ -50,6 +51,6 @@ class TestGromacs(BaseTest):
 
 if __name__ == '__main__':
     test = TestGromacs()
-    diff = test.test_gromacs_unit(test.unit_test_names[0])
+    diff = test.test_gromacs_unit('GROMACS', test.unit_test_names[-1])
     from pprint import pprint
     pprint(diff)

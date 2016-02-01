@@ -1,4 +1,5 @@
 import pytest
+
 from validate.gromacs import gmx_structure_energy
 
 
