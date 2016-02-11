@@ -3,10 +3,11 @@ import os
 
 import parmed.unit as u
 
-from validate.utils import run_subprocess, normalize_energy_keys
+from validate.utils import (run_subprocess, canonicalize_energy_names,
+                            amber_to_canonical)
 
 
-def amb_structure_energy(structure, mdin, file_name='output'):
+def structure_energy(structure, mdin, file_name='output'):
     """Write a structure out to a .prmtop/.inpcrd pair and evaluate its energy.
 
     Parameters
@@ -56,14 +57,39 @@ def energy(prm, crd, mdin):
 
     # Run sander.
     sander.extend(['-i', mdin,
-                   '-o', mdout,
+                   '-O', mdout,
                    '-p', prm,
                    '-c', crd,
-                   '-o', mdout])
+                   '-O', mdout])
     proc = run_subprocess(sander, stdout_path, stderr_path)
     if proc.returncode != 0:
         raise RuntimeError('sander failed. See %s' % stderr_path)
 
-    # energy = _parse_energy_xvg(ener_xvg)
-    energy = OrderedDict()
-    return normalize_energy_keys(energy)
+    energy = _parse_energy_mdout(mdout or 'mdout')
+    return canonicalize_energy_names(energy, 'amber')
+
+
+def _parse_energy_mdout(mdout):
+    """Parse energy.xvg file to extract energy terms into a dict. """
+    energy = OrderedDict.fromkeys(amber_to_canonical,
+                                  0 * u.kilocalories_per_mole)
+    ranges = [[1, 24], [26, 49], [51, 77]]  # Spacings between energy terms.
+    with open(mdout) as f:
+        reading = False
+        for line in f:
+            if 'NSTEP' in line:
+                reading = True
+                # Get the potential energy from the next line.
+                potential = float(next(f).split()[1]) * u.kilocalories_per_mole
+                energy['ENERGY'] = potential
+                next(f)  # Skip blank line after summary.
+            elif not reading or not line.strip():
+                continue
+            elif '=' in line:
+                for r in ranges:
+                    term = line[r[0]:r[1]]
+                    energy_type, value = term.split('=')
+                    energy[energy_type] = float(value) * u.kilocalories_per_mole
+            else:
+                break
+    return energy

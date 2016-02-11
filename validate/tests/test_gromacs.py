@@ -2,13 +2,15 @@ import os
 from pkg_resources import resource_filename
 
 import parmed as pmd
+from parmed.constants import SMALL
 import pytest
 
 from validate import SUPPORTED_ENGINES
-from validate.exceptions import ValidateError
-from validate.gromacs import energy as gmx_energy
+import validate.gromacs as gmx
 from validate.utils import energy_diff
 from validate.tests.basetest import BaseTest
+
+
 
 
 class TestGromacs(BaseTest):
@@ -30,16 +32,22 @@ class TestGromacs(BaseTest):
         gro_in = os.path.join(self.unit_test_dir, test_name, test_name + '.gro')
         mdp = self.choose_config_file('GROMACS', test_name)
 
-        input_energy = gmx_energy(top_in, gro_in, mdp)
+        input_energy = gmx.energy(top_in, gro_in, mdp)
 
         structure = pmd.load_file(top_in, xyz=gro_in)
         output_energy = self.output_energy(engine, structure, test_name)
 
         diff = energy_diff(input_energy, output_energy)
+        for key, energy in diff.items():
+            if key == 'potential':
+                assert energy._value < SMALL, \
+                    '{} {} energy not within tolerance.'.format(test_name, key)
         return diff
 
 if __name__ == '__main__':
     test = TestGromacs()
-    diff = test.test_gromacs_unit('GROMACS', test.unit_test_names[0])
+    test_name = test.unit_test_names[1]
+    print('Converting ', test_name)
+    diff = test.test_gromacs_unit('AMBER', test_name)
     from pprint import pprint
     pprint(diff)

@@ -3,7 +3,8 @@ import os
 
 import parmed.unit as u
 
-from validate.utils import which, run_subprocess, normalize_energy_keys
+from validate.exceptions import ValidateError
+from validate.utils import which, run_subprocess, canonicalize_energy_names
 
 
 # energy terms we are ignoring
@@ -14,7 +15,7 @@ UNWANTED_ENERGY_TERMS = ['Kinetic En.', 'Total Energy', 'Temperature', 'Volume',
                          'Vir-ZY', 'Vir-ZZ', 'pV', 'Density', 'Enthalpy']
 
 
-def gmx_structure_energy(structure,  mdp, file_name='output'):
+def structure_energy(structure, mdp, file_name='output'):
     """Write a structure out to a .top/.gro pair and evaluate its energy.
 
     Parameters
@@ -78,7 +79,7 @@ def energy(top, gro, mdp):
                    '-maxwarn', '5'])
     proc = run_subprocess(grompp, stdout_path, stderr_path)
     if proc.returncode != 0:
-        raise RuntimeError('grompp failed. See %s' % stderr_path)
+        raise ValidateError('grompp failed. See %s' % stderr_path)
 
     # Run single-point calculation with mdrun.
     mdrun.extend(['-nt', '1',
@@ -90,7 +91,7 @@ def energy(top, gro, mdp):
                   '-g', log])
     proc = run_subprocess(mdrun, stdout_path, stderr_path)
     if proc.returncode != 0:
-        raise RuntimeError('mdrun failed. See %s' % stderr_path)
+        raise ValidateError('mdrun failed. See %s' % stderr_path)
 
     # Extract energies using g_energy
     select = " ".join(map(str, range(1, 20))) + " 0 "
@@ -99,11 +100,10 @@ def energy(top, gro, mdp):
                     '-dp'])
     proc = run_subprocess(genergy, stdout_path, stderr_path, stdin=select)
     if proc.returncode != 0:
-        raise RuntimeError('g_energy failed. See %s' % stderr_path)
+        raise ValidateError('g_energy failed. See %s' % stderr_path)
 
     energy = _parse_energy_xvg(ener_xvg)
-    energy = _group_energy_terms(energy)
-    return normalize_energy_keys(energy)
+    return canonicalize_energy_names(energy, 'gromacs')
 
 
 def _parse_energy_xvg(energy_xvg):
@@ -116,40 +116,6 @@ def _parse_energy_xvg(energy_xvg):
     energy_values = [float(x) * u.kilojoule_per_mole
                      for x in all_lines[-1].split()[1:]]
     energy = OrderedDict(zip(energy_types, energy_values))
-    return energy
-
-
-def _group_energy_terms(energy):
-    """Group energy terms into broader categories """
-    # Discard non-energy terms.
-    for group in UNWANTED_ENERGY_TERMS:
-        if group in energy:
-            del energy[group]
-
-    # Dispersive energies.
-    # TODO: Do buckingham energies also get dumped here?
-    dispersive = ['LJ (SR)', 'LJ-14', 'Disper. corr.']
-    energy['Dispersive'] = 0 * u.kilojoules_per_mole
-    for group in dispersive:
-        if group in energy:
-            energy['Dispersive'] += energy[group]
-
-    # Electrostatic energies.
-    electrostatic = ['Coulomb (SR)', 'Coulomb-14', 'Coul. recip.']
-    energy['Electrostatic'] = 0 * u.kilojoules_per_mole
-    for group in electrostatic:
-        if group in energy:
-            energy['Electrostatic'] += energy[group]
-
-    energy['Non-bonded'] = energy['Electrostatic'] + energy['Dispersive']
-
-    # All the various dihedral energies.
-    all_dihedrals = ['Ryckaert-Bell.', 'Proper Dih.', 'Improper Dih.']
-    energy['All dihedrals'] = 0 * u.kilojoules_per_mole
-    for group in all_dihedrals:
-        if group in energy:
-            energy['All dihedrals'] += energy[group]
-
     return energy
 
 

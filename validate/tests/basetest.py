@@ -3,21 +3,21 @@ from pkg_resources import resource_filename
 
 import pytest
 
-from validate.gromacs import gmx_structure_energy
-from validate.amber import amb_structure_energy
+import validate.gromacs as gmx
+import validate.amber as amb
 
 
 class BaseTest(object):
-    structure_energy_evaluators = {'GROMACS': gmx_structure_energy,
-                                   'AMBER': amb_structure_energy}
+    structure_energy_evaluators = {'GROMACS': gmx.structure_energy,
+                                   'AMBER': amb.structure_energy}
 
     gromacs_dir = resource_filename('validate', 'tests/gromacs')
     mdp = os.path.join(gromacs_dir, 'grompp.mdp')
     mdp_vacuum = os.path.join(gromacs_dir, 'grompp_vacuum.mdp')
 
     amber_dir = resource_filename('validate', 'tests/amber')
-    mdin = os.path.join(amber_dir, 'min.in')
-    mdin_vacuum = os.path.join(amber_dir, 'min_vacuum.in')
+    mdin = os.path.join(amber_dir, 'mdin.in')
+    mdin_vacuum = os.path.join(amber_dir, 'mdin_vacuum.in')
 
     @pytest.fixture(autouse=True)
     def initdir(self, tmpdir):
