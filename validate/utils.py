@@ -4,7 +4,6 @@ from subprocess import PIPE, Popen
 
 import parmed.unit as u
 
-from validate import SUPPORTED_ENGINES
 from validate.exceptions import ValidateError
 
 canonical_energy_names = [
@@ -107,35 +106,3 @@ def energy_diff(e_in, e_out):
             raise ValidateError('"{}" energy present in input but not output.'.format(term))
         diff[term] = e_out[term] - e_in[term]
     return diff
-
-
-def engine_test_combos(test_names):
-    """Return (engine, test_name) pairs for every engine and test.
-
-    Used for py.test's parametrize decorator.
-
-    Example output for `test_names = ['bond1', 'bond2']` when
-    GROMACS and AMBER are supported:
-    
-        ('GROMACS', 'bond1')
-        ('GROMACS', 'bond2')
-        ('AMBER', 'bond1')
-        ('AMBER', 'bond2')
-
-    Parameters
-    ----------
-    test_names : list of str
-        A list of test names.
-
-    Returns
-    -------
-    engine_test_combos : iterator of 2-tuples of str
-        Iterator of (engine, test_name) pairs for every engine and test.
-
-    """
-    repeated_engines = list()
-    tests_per_engine = list()
-    for engine in SUPPORTED_ENGINES:
-        repeated_engines.extend([engine] * len(test_names))
-        tests_per_engine.extend(test_names)
-    return zip(repeated_engines, tests_per_engine)

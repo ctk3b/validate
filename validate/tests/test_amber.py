@@ -1,3 +1,4 @@
+import itertools as it
 import os
 from pkg_resources import resource_filename
 
@@ -7,7 +8,7 @@ import pytest
 
 from validate import SUPPORTED_ENGINES
 import validate.amber as amb
-from validate.utils import energy_diff, engine_test_combos
+from validate.utils import energy_diff
 from validate.tests.basetest import BaseTest
 
 
@@ -17,7 +18,7 @@ class TestAmber(BaseTest):
     unit_test_names = list(os.walk(unit_test_dir))[0][1]
 
     @pytest.mark.parametrize('engine,test_name',
-                             engine_test_combos(unit_test_names))
+                             it.product(SUPPORTED_ENGINES, unit_test_names))
     def test_amber_unit(self, engine, test_name):
         """Convert GROMACS unit tests to every supported engine. """
         prm_in = os.path.join(self.unit_test_dir, test_name, test_name + '.prmtop')
