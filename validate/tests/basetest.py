@@ -44,10 +44,8 @@ class BaseTest(object):
         energy_evaluator = self.structure_energy_evaluators[engine]
         output_energy = energy_evaluator(structure, config_file, test_name)
         diff = energy_diff(input_energy, output_energy)
-        for key, energy in diff.items():
-            if key == 'potential':
-                assert energy._value < SMALL, \
-                    '{} {} energy not within tolerance.'.format(test_name, key)
+        assert diff['potential']._value < SMALL, \
+            '{} potential energy not within tolerance.'.format(test_name)
         return diff
 
     def choose_config_file(self, engine, test_name):

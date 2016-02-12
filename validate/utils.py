@@ -41,6 +41,19 @@ key_converters = {'gromacs': gromacs_to_canonical,
 
 
 def canonicalize_energy_names(energy_dict, engine):
+    """Adjust the keys in energy_dict to the canonical names.
+
+    Parameters
+    ----------
+    energy_dict : OrderedDict
+    engine : str
+
+    Returns
+    -------
+    normalized : OrderedDict
+
+    """
+    # TODO: Look into creating an `EnergyDict` class.
     normalized = OrderedDict.fromkeys(canonical_energy_names,
                                       0 * u.kilojoules_per_mole)
     canonical_keys = key_converters[engine]
@@ -54,21 +67,29 @@ def canonicalize_energy_names(energy_dict, engine):
     return normalized
 
 
-def which(program):
-    def is_exe(fpath):
-        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+try:
+    from shutil import which
+except ImportError:
+    def which(program):
+        """Python implementation of the `which` shell command.
 
-    fpath, fname = os.path.split(program)
-    if fpath:
-        if is_exe(program):
-            return program
-    else:
-        for path in os.environ["PATH"].split(os.pathsep):
-            path = path.strip('"')
-            exe_file = os.path.join(path, program)
-            if is_exe(exe_file):
-                return exe_file
-    return None
+        Only needed for Python < 3.3 which doesn't have shutil.which
+
+        """
+        def is_exe(fpath):
+            return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+        fpath, fname = os.path.split(program)
+        if fpath:
+            if is_exe(program):
+                return program
+        else:
+            for path in os.environ["PATH"].split(os.pathsep):
+                path = path.strip('"')
+                exe_file = os.path.join(path, program)
+                if is_exe(exe_file):
+                    return exe_file
+        return None
 
 
 def run_subprocess(cmd, stdout_path, stderr_path, stdin=None):
@@ -99,7 +120,6 @@ def energy_diff(e_in, e_out):
     diff : OrderedDict
 
     """
-    # TODO: Look into creating an `EnergyDict` class.
     diff = OrderedDict()
     for term in e_in:
         if term not in e_out:
