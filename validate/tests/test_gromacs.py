@@ -3,12 +3,10 @@ import os
 from pkg_resources import resource_filename
 
 import parmed as pmd
-from parmed.constants import SMALL
 import pytest
 
 from validate import SUPPORTED_ENGINES
 import validate.gromacs as gmx
-from validate.utils import energy_diff
 from validate.tests.basetest import BaseTest
 
 
@@ -26,16 +24,8 @@ class TestGromacs(BaseTest):
         mdp = self.choose_config_file('GROMACS', test_name)
 
         input_energy = gmx.energy(top_in, gro_in, mdp)
-
         structure = pmd.load_file(top_in, xyz=gro_in)
-        output_energy = self.output_energy(engine, structure, test_name)
-
-        diff = energy_diff(input_energy, output_energy)
-        for key, energy in diff.items():
-            if key == 'potential':
-                assert energy._value < SMALL, \
-                    '{} {} energy not within tolerance.'.format(test_name, key)
-        return diff
+        return self.compare_energy(structure, engine, input_energy, test_name)
 
 if __name__ == '__main__':
     test = TestGromacs()

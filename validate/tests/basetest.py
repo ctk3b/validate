@@ -1,10 +1,12 @@
 import os
 from pkg_resources import resource_filename
 
+from parmed.constants import SMALL
 import pytest
 
-import validate.gromacs as gmx
 import validate.amber as amb
+import validate.gromacs as gmx
+from validate.utils import energy_diff
 
 
 class BaseTest(object):
@@ -23,10 +25,30 @@ class BaseTest(object):
     def initdir(self, tmpdir):
         tmpdir.chdir()
 
-    def output_energy(self, engine, structure, test_name):
+    def compare_energy(self, structure, engine, input_energy, test_name):
+        """Compute energy of a structure and compare it to an input energy.
+
+        Parameters
+        ----------
+        structure : pmd.Structure
+        engine : str
+        input_energy : OrderedDict
+        test_name : str
+
+        Returns
+        -------
+        diff : OrderedDict
+
+        """
         config_file = self.choose_config_file(engine, test_name)
         energy_evaluator = self.structure_energy_evaluators[engine]
-        return energy_evaluator(structure, config_file, test_name)
+        output_energy = energy_evaluator(structure, config_file, test_name)
+        diff = energy_diff(input_energy, output_energy)
+        for key, energy in diff.items():
+            if key == 'potential':
+                assert energy._value < SMALL, \
+                    '{} {} energy not within tolerance.'.format(test_name, key)
+        return diff
 
     def choose_config_file(self, engine, test_name):
         if engine == 'GROMACS':
