@@ -3,7 +3,6 @@ import os
 
 import parmed.unit as u
 
-from validate.exceptions import ValidateError
 from validate.utils import which, run_subprocess, canonicalize_energy_names
 
 
@@ -77,9 +76,7 @@ def energy(top, gro, mdp):
                    '-o', tpr,
                    '-po', mdout,
                    '-maxwarn', '5'])
-    proc = run_subprocess(grompp, stdout_path, stderr_path)
-    if proc.returncode != 0:
-        raise ValidateError('grompp failed. See %s' % stderr_path)
+    run_subprocess(grompp, stdout_path, stderr_path)
 
     # Run single-point calculation with mdrun.
     mdrun.extend(['-nt', '1',
@@ -89,18 +86,14 @@ def energy(top, gro, mdp):
                   '-c', conf,
                   '-e', ener,
                   '-g', log])
-    proc = run_subprocess(mdrun, stdout_path, stderr_path)
-    if proc.returncode != 0:
-        raise ValidateError('mdrun failed. See %s' % stderr_path)
+    run_subprocess(mdrun, stdout_path, stderr_path)
 
     # Extract energies using g_energy
     select = " ".join(map(str, range(1, 20))) + " 0 "
     genergy.extend(['-f', ener,
                     '-o', ener_xvg,
                     '-dp'])
-    proc = run_subprocess(genergy, stdout_path, stderr_path, stdin=select)
-    if proc.returncode != 0:
-        raise ValidateError('g_energy failed. See %s' % stderr_path)
+    run_subprocess(genergy, stdout_path, stderr_path, stdin=select)
 
     energy = _parse_energy_xvg(ener_xvg)
     return canonicalize_energy_names(energy, 'gromacs')

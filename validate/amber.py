@@ -53,27 +53,27 @@ def energy(prm, crd, mdin):
     stdout_path = os.path.join(directory, 'amber_stdout.txt')
     stderr_path = os.path.join(directory, 'amber_stderr.txt')
 
-    sander = ['sander']
 
     # Run sander.
+    sander = ['sander']
     sander.extend(['-i', mdin,
                    '-O', mdout,
                    '-p', prm,
                    '-c', crd,
                    '-O', mdout])
-    proc = run_subprocess(sander, stdout_path, stderr_path)
-    if proc.returncode != 0:
-        raise RuntimeError('sander failed. See %s' % stderr_path)
+    run_subprocess(sander, stdout_path, stderr_path)
 
+    # TODO: Fix mdout filenaming.
     energy = _parse_energy_mdout(mdout or 'mdout')
     return canonicalize_energy_names(energy, 'amber')
 
 
 def _parse_energy_mdout(mdout):
-    """Parse energy.xvg file to extract energy terms into a dict. """
+    """Parse mdout file to extract energy terms into a dict. """
     energy = OrderedDict.fromkeys(amber_to_canonical,
                                   0 * u.kilocalories_per_mole)
     ranges = [[1, 24], [26, 49], [51, 77]]  # Spacings between energy terms.
+    # TODO: Could probably be replaced by a more elegant regex.
     with open(mdout) as f:
         reading = False
         for line in f:

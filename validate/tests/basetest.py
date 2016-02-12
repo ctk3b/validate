@@ -39,3 +39,4 @@ class BaseTest(object):
                 return self.mdin_vacuum
             else:
                 return self.mdin
+
