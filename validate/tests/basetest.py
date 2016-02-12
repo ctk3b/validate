@@ -8,19 +8,23 @@ import validate.amber as amb
 import validate.gromacs as gmx
 from validate.utils import energy_diff
 
+structure_energy_evaluators = {'GROMACS': gmx.structure_energy,
+                               'AMBER': amb.structure_energy}
 
-class BaseTest(object):
-    structure_energy_evaluators = {'GROMACS': gmx.structure_energy,
-                                   'AMBER': amb.structure_energy}
+GROMACS_DIR = resource_filename('validate', 'tests/gromacs')
+MDP = os.path.join(GROMACS_DIR, 'grompp.mdp')
+MDP_VACUUM = os.path.join(GROMACS_DIR, 'grompp_vacuum.mdp')
+GROMACS_UNIT_TEST_DIR = os.path.join(GROMACS_DIR, 'unit_tests')
+GROMACS_UNIT_TESTS = list(os.walk(GROMACS_UNIT_TEST_DIR))[0][1]
 
-    gromacs_dir = resource_filename('validate', 'tests/gromacs')
-    mdp = os.path.join(gromacs_dir, 'grompp.mdp')
-    mdp_vacuum = os.path.join(gromacs_dir, 'grompp_vacuum.mdp')
+AMBER_DIR = resource_filename('validate', 'tests/amber')
+MDIN = os.path.join(AMBER_DIR, 'mdin.in')
+MDIN_VACUUM = os.path.join(AMBER_DIR, 'mdin_vacuum.in')
+AMBER_UNIT_TEST_DIR = os.path.join(AMBER_DIR, 'unit_tests')
+AMBER_UNIT_TESTS = list(os.walk(AMBER_UNIT_TEST_DIR))[0][1]
 
-    amber_dir = resource_filename('validate', 'tests/amber')
-    mdin = os.path.join(amber_dir, 'mdin.in')
-    mdin_vacuum = os.path.join(amber_dir, 'mdin_vacuum.in')
 
+class BaseTest:
     @pytest.fixture(autouse=True)
     def initdir(self, tmpdir):
         tmpdir.chdir()
@@ -41,22 +45,22 @@ class BaseTest(object):
 
         """
         config_file = self.choose_config_file(engine, test_name)
-        energy_evaluator = self.structure_energy_evaluators[engine]
+        energy_evaluator = structure_energy_evaluators[engine]
         output_energy = energy_evaluator(structure, config_file, test_name)
         diff = energy_diff(input_energy, output_energy)
         assert diff['potential']._value < SMALL, \
             '{} potential energy not within tolerance.'.format(test_name)
         return diff
 
-    def choose_config_file(self, engine, test_name):
+    @staticmethod
+    def choose_config_file(engine, test_name):
         if engine == 'GROMACS':
             if '_vacuum' in test_name:
-                return self.mdp_vacuum
+                return MDP_VACUUM
             else:
-                return self.mdp
+                return MDP
         if engine == 'AMBER':
             if '_vacuum' in test_name:
-                return self.mdin_vacuum
+                return MDIN_VACUUM
             else:
-                return self.mdin
-
+                return MDIN

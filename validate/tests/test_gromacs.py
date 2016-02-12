@@ -1,26 +1,22 @@
 import itertools as it
 import os
-from pkg_resources import resource_filename
 
 import parmed as pmd
 import pytest
 
 from validate import SUPPORTED_ENGINES
 import validate.gromacs as gmx
-from validate.tests.basetest import BaseTest
+from validate.tests.basetest import (BaseTest, GROMACS_UNIT_TESTS,
+                                     GROMACS_UNIT_TEST_DIR)
 
 
 class TestGromacs(BaseTest):
-    gromacs_dir = resource_filename('validate', 'tests/gromacs')
-    unit_test_dir = os.path.join(gromacs_dir, 'unit_tests')
-    unit_test_names = list(os.walk(unit_test_dir))[0][1]
-
     @pytest.mark.parametrize('engine,test_name',
-                             it.product(SUPPORTED_ENGINES, unit_test_names))
+                             it.product(SUPPORTED_ENGINES, GROMACS_UNIT_TESTS))
     def test_gromacs_unit(self, engine, test_name):
         """Convert GROMACS unit tests to every supported engine. """
-        top_in = os.path.join(self.unit_test_dir, test_name, test_name + '.top')
-        gro_in = os.path.join(self.unit_test_dir, test_name, test_name + '.gro')
+        top_in = os.path.join(GROMACS_UNIT_TEST_DIR, test_name, test_name + '.top')
+        gro_in = os.path.join(GROMACS_UNIT_TEST_DIR, test_name, test_name + '.gro')
         mdp = self.choose_config_file('GROMACS', test_name)
 
         input_energy = gmx.energy(top_in, gro_in, mdp)
@@ -29,7 +25,7 @@ class TestGromacs(BaseTest):
 
 if __name__ == '__main__':
     test = TestGromacs()
-    test_name = test.unit_test_names[1]
+    test_name = GROMACS_UNIT_TESTS[1]
     print('Converting ', test_name)
     diff = test.test_gromacs_unit('AMBER', test_name)
     from pprint import pprint
