@@ -1,10 +1,29 @@
 from collections import OrderedDict
 import os
+try:
+    from shutil import which
+except ImportError:  # shutil.which was introduced in Python 3.3
+    def which(program):
+        def is_exe(fpath):
+            return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+        fpath, fname = os.path.split(program)
+        if fpath:
+            if is_exe(program):
+                return program
+        else:
+            for path in os.environ["PATH"].split(os.pathsep):
+                path = path.strip('"')
+                exe_file = os.path.join(path, program)
+                if is_exe(exe_file):
+                    return exe_file
+        return None
 from subprocess import PIPE, Popen
 
 import parmed.unit as u
 
 from validate.exceptions import ValidateError
+
 
 canonical_energy_names = [
     'bond', 'angle', 'urey_bradley', 'dihedral', 'improper', 'rb_torsion',
@@ -65,31 +84,6 @@ def canonicalize_energy_names(energy_dict, engine):
     normalized['nonbonded'] = (normalized['vdw'] + normalized['coulomb'] +
                                normalized['vdw-14'] + normalized['coulomb-14'])
     return normalized
-
-
-try:
-    from shutil import which
-except ImportError:
-    def which(program):
-        """Python implementation of the `which` shell command.
-
-        Only needed for Python < 3.3 which doesn't have shutil.which
-
-        """
-        def is_exe(fpath):
-            return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
-
-        fpath, fname = os.path.split(program)
-        if fpath:
-            if is_exe(program):
-                return program
-        else:
-            for path in os.environ["PATH"].split(os.pathsep):
-                path = path.strip('"')
-                exe_file = os.path.join(path, program)
-                if is_exe(exe_file):
-                    return exe_file
-        return None
 
 
 def run_subprocess(cmd, stdout_path, stderr_path, stdin=None):
